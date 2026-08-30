@@ -1,46 +1,81 @@
-from flask import Flask, jsonify  # Flask app and JSON response helper
-import random  # Used to select a random joke
+from flask import Flask, jsonify
+import random
+import mysql.connector
 
-app = Flask(__name__)  # Create Flask application instance
+app = Flask(__name__)
 
-# Sample in-memory "database"
-jokes = [
-    {"id": 1, "setup": "Why don’t scientists trust atoms?", "punchline": "Because they make up everything."},
-    {"id": 2, "setup": "Why did the scarecrow get promoted?", "punchline": "Because he was outstanding in his field."},
-    {"id": 3, "setup": "Why did the golfer bring two pairs of pants?", "punchline": "n case he got a hole in one."},
-    {"id": 4, "setup": "Why don’t skeletons fight each other?", "punchline": "They don’t have the guts."}
-]
+# MySQL database configuration
+DB_CONFIG = {
+    "host": "127.0.0.1",
+    "user": "root",
+    "password": "KhizarIlyas2008!",
+    "database": "kiwi"
+}
 
-@app.route('/')  # Root endpoint
+# Helper function to get DB connection
+def get_connection():
+    return mysql.connector.connect(**DB_CONFIG)
+
+
+@app.route('/')
 def home():
-    return "Welcome to the REST API!"  # Simple status response
+    return "Welcome to the REST API!"
+
 
 # GET: Fetch all jokes
 @app.route('/jokes', methods=['GET'])
 def get_jokes():
-    return jsonify(jokes)  # Return all jokes as JSON
+    connection = get_connection()
+    cursor = connection.cursor(dictionary=True)
 
-# GET: Fetch single jokes by ID randomly
+    cursor.execute(
+        "SELECT id, category, setup, punchline FROM jokes"
+    )
+    jokes = cursor.fetchall()
+
+    cursor.close()
+    connection.close()
+
+    return jsonify(jokes)
+
+
+# GET: Fetch single joke by ID
 @app.route('/jokes/<int:joke_id>', methods=['GET'])
 def get_joke(joke_id):
-    # Find a joke matching the provided ID
-    joke = next((j for j in jokes if j["id"] == joke_id), None)
+    connection = get_connection()
+    cursor = connection.cursor(dictionary=True)
+
+    cursor.execute(
+        "SELECT id, category, setup, punchline FROM jokes WHERE id = %s",
+        (joke_id,)
+    )
+    joke = cursor.fetchone()
+
+    cursor.close()
+    connection.close()
+
     return jsonify(joke) if joke else ("Joke not found", 404)
 
-# GET: Fetch single jokes by ID randomly
+
+# GET: Fetch random joke
 @app.route('/jokes/random', methods=['GET'])
 def get_random_joke():
-    # Select a random joke ID from the list
-    random_id = random.choice(jokes)["id"]
+    connection = get_connection()
+    cursor = connection.cursor(dictionary=True)
 
-    # Find and return the joke with that ID
-    joke = next((j for j in jokes if j["id"] == random_id), None)
+    cursor.execute(
+        "SELECT id, category, setup, punchline FROM jokes ORDER BY RAND() LIMIT 1"
+    )
+    joke = cursor.fetchone()
+
+    cursor.close()
+    connection.close()
+
     return jsonify(joke) if joke else ("Joke not found", 404)
 
+
 if __name__ == '__main__':
-    app.run(debug=True)  # Start Flask development server
-
-
+    app.run(debug=True)
 
 
 # # POST: Create a new user
